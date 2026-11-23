@@ -10,6 +10,9 @@ interface HandledCallDao {
     @Query("SELECT * FROM handled_calls ORDER BY handled_at DESC")
     fun observeAll(): Flow<List<HandledCallEntity>>
 
+    @Query("SELECT * FROM handled_calls ORDER BY handled_at DESC LIMIT 1")
+    fun observeLast(): Flow<HandledCallEntity?>
+
     @Query("SELECT COUNT(*) FROM handled_calls")
     fun observeCount(): Flow<Int>
 

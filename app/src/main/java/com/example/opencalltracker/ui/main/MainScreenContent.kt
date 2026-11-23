@@ -17,6 +17,7 @@ import com.example.opencalltracker.R
 import com.example.opencalltracker.ui.main.components.ActiveDuration
 import com.example.opencalltracker.ui.main.components.DetectionStatus
 import com.example.opencalltracker.ui.main.components.DetectionStatusChip
+import com.example.opencalltracker.ui.main.components.LastHandledCall
 import com.example.opencalltracker.ui.main.components.MainTopBar
 import com.example.opencalltracker.ui.main.components.NoticeCard
 import com.example.opencalltracker.ui.main.components.PowerButton
@@ -24,12 +25,7 @@ import com.example.opencalltracker.ui.main.components.StatsRow
 import com.example.opencalltracker.ui.theme.OpenCallTrackerTheme
 
 @Composable
-fun MainScreenContent(
-    uiState: MainUiState,
-    onDetectionToggled: () -> Unit,
-    onRequestDefaultDialer: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun MainScreenContent(uiState: MainUiState, onDetectionToggled: () -> Unit, modifier: Modifier = Modifier) {
     Scaffold(modifier = modifier.fillMaxSize(), topBar = { MainTopBar() }) { innerPadding ->
         Column(
             modifier = Modifier
@@ -46,17 +42,15 @@ fun MainScreenContent(
             if (uiState.isDetectionEnabled) {
                 ActiveDuration(seconds = uiState.activeDurationSeconds)
             }
+            uiState.lastHandledCall?.let { lastHandledCall ->
+                LastHandledCall(handledCall = lastHandledCall)
+            }
             StatsRow(
                 handledCallsToday = uiState.handledCallsToday,
                 handledCallsTotal = uiState.handledCallsTotal
             )
             if (!uiState.isDefaultDialer) {
-                NoticeCard(
-                    text = stringResource(R.string.main_notice_default_dialer),
-                    iconRes = R.drawable.ic_warning,
-                    actionLabel = stringResource(R.string.main_notice_default_dialer_action),
-                    onActionClick = onRequestDefaultDialer
-                )
+                NoticeCard(text = stringResource(R.string.main_notice_default_dialer), iconRes = R.drawable.ic_warning)
             }
             NoticeCard(text = stringResource(R.string.main_notice_background), iconRes = R.drawable.ic_info)
         }
@@ -71,7 +65,7 @@ private val SectionSpacing = 20.dp
 @Composable
 private fun MainScreenContentInactivePreview() {
     OpenCallTrackerTheme {
-        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {}, onRequestDefaultDialer = {})
+        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {})
     }
 }
 
@@ -87,8 +81,7 @@ private fun MainScreenContentActivePreview() {
                 handledCallsTotal = 128,
                 isDefaultDialer = true
             ),
-            onDetectionToggled = {},
-            onRequestDefaultDialer = {}
+            onDetectionToggled = {}
         )
     }
 }

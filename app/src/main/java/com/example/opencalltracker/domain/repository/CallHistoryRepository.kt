@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.Flow
 interface CallHistoryRepository {
     fun observeHandledCalls(): Flow<List<HandledCall>>
 
+    fun observeLastHandledCall(): Flow<HandledCall?>
+
     fun observeHandledCallCount(): Flow<Int>
 
     fun observeHandledCallCountSince(sinceMillis: Long): Flow<Int>

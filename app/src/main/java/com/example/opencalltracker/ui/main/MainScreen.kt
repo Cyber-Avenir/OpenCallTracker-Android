@@ -16,21 +16,20 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainViewModel = viewMod
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val roleRequestLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        viewModel.refreshDialerRole()
+        viewModel.onDialerRoleRequestResult()
     }
 
-    val requestDefaultDialerRole: () -> Unit = {
-        roleRequestLauncher.launch(createDialerRoleRequestIntent(context))
+    val toggleDetection: () -> Unit = {
+        if (!uiState.isDetectionEnabled && !uiState.isDefaultDialer) {
+            roleRequestLauncher.launch(createDialerRoleRequestIntent(context))
+        } else {
+            viewModel.onDetectionToggled()
+        }
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshDialerRole()
     }
 
-    MainScreenContent(
-        uiState = uiState,
-        onDetectionToggled = viewModel::onDetectionToggled,
-        onRequestDefaultDialer = requestDefaultDialerRole,
-        modifier = modifier
-    )
+    MainScreenContent(uiState = uiState, onDetectionToggled = toggleDetection, modifier = modifier)
 }

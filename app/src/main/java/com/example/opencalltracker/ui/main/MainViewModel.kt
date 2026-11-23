@@ -36,18 +36,26 @@ class MainViewModel(
         }
     }
 
-    val uiState: StateFlow<MainUiState> = combine(
-        detectionSettingsRepository.observeDetectionState(),
+    private val historySummary: Flow<MainHistorySummary> = combine(
         callHistoryRepository.observeHandledCallCountSince(startOfTodayMillis()),
         callHistoryRepository.observeHandledCallCount(),
+        callHistoryRepository.observeLastHandledCall()
+    ) { handledToday, handledTotal, lastHandledCall ->
+        MainHistorySummary(handledToday = handledToday, handledTotal = handledTotal, lastHandledCall = lastHandledCall)
+    }
+
+    val uiState: StateFlow<MainUiState> = combine(
+        detectionSettingsRepository.observeDetectionState(),
+        historySummary,
         isDefaultDialerState,
         secondTicks
-    ) { detectionState, handledCallsToday, handledCallsTotal, isDefaultDialer, _ ->
+    ) { detectionState, history, isDefaultDialer, _ ->
         MainUiState(
             isDetectionEnabled = detectionState.isEnabled,
             activeDurationSeconds = elapsedSecondsSince(detectionState.enabledAt),
-            handledCallsToday = handledCallsToday,
-            handledCallsTotal = handledCallsTotal,
+            handledCallsToday = history.handledToday,
+            handledCallsTotal = history.handledTotal,
+            lastHandledCall = history.lastHandledCall,
             isDefaultDialer = isDefaultDialer
         )
     }.stateIn(
@@ -64,6 +72,14 @@ class MainViewModel(
 
     fun refreshDialerRole() {
         isDefaultDialerState.value = dialerRoleRepository.isDefaultDialer()
+    }
+
+    // The role request is triggered by the power button: detection starts only once it is granted.
+    fun onDialerRoleRequestResult() {
+        refreshDialerRole()
+        if (isDefaultDialerState.value && !uiState.value.isDetectionEnabled) {
+            onDetectionToggled()
+        }
     }
 
     companion object {
