@@ -1,6 +1,8 @@
 package com.example.opencalltracker.service
 
+import android.content.Intent
 import android.os.Build
+import android.os.IBinder
 import android.telecom.Call
 import android.telecom.InCallService
 import android.telecom.VideoProfile
@@ -14,6 +16,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class CallInterceptorService : InCallService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -22,11 +25,19 @@ class CallInterceptorService : InCallService() {
     private val container: AppContainer
         get() = (application as OpenCallTrackerApplication).container
 
+    // Telecom falls back to the preloaded dialer when this returns null, which hands every call
+    // back to the stock phone app while detection is off.
+    override fun onBind(intent: Intent?): IBinder? {
+        if (!isDetectionEnabled()) {
+            return null
+        }
+        return super.onBind(intent)
+    }
+
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         serviceScope.launch {
-            val isDetectionEnabled = container.detectionSettingsRepository.observeDetectionState().first().isEnabled
-            if (isDetectionEnabled && call.currentState == Call.STATE_RINGING) {
+            if (isDetectionEnabled() && call.currentState == Call.STATE_RINGING) {
                 intercept(call)
             }
         }
@@ -78,6 +89,8 @@ class CallInterceptorService : InCallService() {
             outcome = outcome
         )
     }
+
+    private fun isDetectionEnabled(): Boolean = runBlocking { container.detectionSettingsRepository.observeDetectionState().first().isEnabled }
 
     private fun unregister(call: Call) {
         callbacks.remove(call)?.let { call.unregisterCallback(it) }

@@ -12,4 +12,6 @@
     <string name="main_stat_total">Handled in total</string>
     <string name="main_notice_default_dialer">OpenCallTracker must be your default Phone app to send the # tone during a call.</string>
     <string name="main_notice_background">Detection keeps running when the app is in the background or closed.</string>
+    <string name="main_last_call">Last handled: %1$s, %2$s</string>
+    <string name="main_last_call_unknown_number">unknown number</string>
 </resources>

@@ -17,6 +17,7 @@ import com.example.opencalltracker.R
 import com.example.opencalltracker.ui.main.components.ActiveDuration
 import com.example.opencalltracker.ui.main.components.DetectionStatus
 import com.example.opencalltracker.ui.main.components.DetectionStatusChip
+import com.example.opencalltracker.ui.main.components.LastHandledCall
 import com.example.opencalltracker.ui.main.components.MainTopBar
 import com.example.opencalltracker.ui.main.components.NoticeCard
 import com.example.opencalltracker.ui.main.components.PowerButton
@@ -40,6 +41,9 @@ fun MainScreenContent(uiState: MainUiState, onDetectionToggled: () -> Unit, modi
             DetectionStatus(isEnabled = uiState.isDetectionEnabled)
             if (uiState.isDetectionEnabled) {
                 ActiveDuration(seconds = uiState.activeDurationSeconds)
+            }
+            uiState.lastHandledCall?.let { lastHandledCall ->
+                LastHandledCall(handledCall = lastHandledCall)
             }
             StatsRow(
                 handledCallsToday = uiState.handledCallsToday,

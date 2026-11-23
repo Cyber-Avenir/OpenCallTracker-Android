@@ -9,10 +9,12 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.opencalltracker.OpenCallTrackerApplication
 import com.example.opencalltracker.domain.repository.CallHistoryRepository
 import com.example.opencalltracker.domain.repository.DetectionSettingsRepository
+import com.example.opencalltracker.domain.repository.DialerRoleRepository
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -22,8 +24,11 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(
     private val detectionSettingsRepository: DetectionSettingsRepository,
+    private val dialerRoleRepository: DialerRoleRepository,
     callHistoryRepository: CallHistoryRepository
 ) : ViewModel() {
+    private val isDefaultDialerState = MutableStateFlow(dialerRoleRepository.isDefaultDialer())
+
     private val secondTicks: Flow<Unit> = flow {
         while (true) {
             emit(Unit)
@@ -31,17 +36,27 @@ class MainViewModel(
         }
     }
 
-    val uiState: StateFlow<MainUiState> = combine(
-        detectionSettingsRepository.observeDetectionState(),
+    private val historySummary: Flow<MainHistorySummary> = combine(
         callHistoryRepository.observeHandledCallCountSince(startOfTodayMillis()),
         callHistoryRepository.observeHandledCallCount(),
+        callHistoryRepository.observeLastHandledCall()
+    ) { handledToday, handledTotal, lastHandledCall ->
+        MainHistorySummary(handledToday = handledToday, handledTotal = handledTotal, lastHandledCall = lastHandledCall)
+    }
+
+    val uiState: StateFlow<MainUiState> = combine(
+        detectionSettingsRepository.observeDetectionState(),
+        historySummary,
+        isDefaultDialerState,
         secondTicks
-    ) { detectionState, handledCallsToday, handledCallsTotal, _ ->
+    ) { detectionState, history, isDefaultDialer, _ ->
         MainUiState(
             isDetectionEnabled = detectionState.isEnabled,
             activeDurationSeconds = elapsedSecondsSince(detectionState.enabledAt),
-            handledCallsToday = handledCallsToday,
-            handledCallsTotal = handledCallsTotal
+            handledCallsToday = history.handledToday,
+            handledCallsTotal = history.handledTotal,
+            lastHandledCall = history.lastHandledCall,
+            isDefaultDialer = isDefaultDialer
         )
     }.stateIn(
         scope = viewModelScope,
@@ -55,11 +70,27 @@ class MainViewModel(
         }
     }
 
+    fun refreshDialerRole() {
+        isDefaultDialerState.value = dialerRoleRepository.isDefaultDialer()
+    }
+
+    // The role request is triggered by the power button: detection starts only once it is granted.
+    fun onDialerRoleRequestResult() {
+        refreshDialerRole()
+        if (isDefaultDialerState.value && !uiState.value.isDetectionEnabled) {
+            onDetectionToggled()
+        }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as OpenCallTrackerApplication).container
-                MainViewModel(container.detectionSettingsRepository, container.callHistoryRepository)
+                MainViewModel(
+                    detectionSettingsRepository = container.detectionSettingsRepository,
+                    dialerRoleRepository = container.dialerRoleRepository,
+                    callHistoryRepository = container.callHistoryRepository
+                )
             }
         }
     }

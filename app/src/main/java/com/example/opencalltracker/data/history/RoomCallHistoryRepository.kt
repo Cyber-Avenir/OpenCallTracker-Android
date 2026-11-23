@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.map
 class RoomCallHistoryRepository(private val handledCallDao: HandledCallDao) : CallHistoryRepository {
     override fun observeHandledCalls(): Flow<List<HandledCall>> = handledCallDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
+    override fun observeLastHandledCall(): Flow<HandledCall?> = handledCallDao.observeLast().map { entity -> entity?.toDomain() }
+
     override fun observeHandledCallCount(): Flow<Int> = handledCallDao.observeCount()
 
     override fun observeHandledCallCountSince(sinceMillis: Long): Flow<Int> = handledCallDao.observeCountSince(sinceMillis)
