@@ -4,7 +4,7 @@ Android app (Kotlin, Jetpack Compose, no backend): auto-answers incoming calls, 
 
 ## Architecture
 
-MVVM, single `app` module split by package: `ui/` (Compose screens, ViewModels), `domain/` (models, repository interfaces), `data/` (Room, DataStore), `service/` (`InCallService`), `di/`.
+MVVM, single `app` module split by package: `ui/main` and `ui/theme` (Compose screens, ViewModels, one composable per file under `components/`), `domain/model` and `domain/repository`, `data/history` (Room) and `data/settings` (DataStore), `service/` (`InCallService`), `di/` (`AppContainer`, manual injection).
 
 - Composables hold no business logic and never touch Room, DataStore or the call service; they observe a ViewModel `StateFlow`.
 - ViewModels and the call service depend on `domain` interfaces only.
