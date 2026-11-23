@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">OpenCallTracker</string>
+    <string name="main_chip_running">Running</string>
+    <string name="main_chip_stopped">Stopped</string>
+    <string name="main_status_active">Detection active</string>
+    <string name="main_status_active_description">Incoming calls are answered automatically, then hung up.</string>
+    <string name="main_status_inactive">Detection off</string>
+    <string name="main_status_inactive_description">Incoming calls are left untouched. Tap the button to start.</string>
+    <string name="main_power_button_turn_on">Turn detection on</string>
+    <string name="main_power_button_turn_off">Turn detection off</string>
+    <string name="main_stat_today">Handled today</string>
+    <string name="main_stat_total">Handled in total</string>
+    <string name="main_notice_default_dialer">OpenCallTracker must be your default Phone app to send the # tone during a call.</string>
+    <string name="main_notice_background">Detection keeps running when the app is in the background or closed.</string>
 </resources>
