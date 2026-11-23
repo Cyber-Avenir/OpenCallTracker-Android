@@ -7,7 +7,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun MainScreen(modifier: Modifier = Modifier, viewModel: MainViewModel = viewModel()) {
+fun MainScreen(modifier: Modifier = Modifier, viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     MainScreenContent(
