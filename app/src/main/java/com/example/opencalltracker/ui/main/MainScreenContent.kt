@@ -24,7 +24,12 @@ import com.example.opencalltracker.ui.main.components.StatsRow
 import com.example.opencalltracker.ui.theme.OpenCallTrackerTheme
 
 @Composable
-fun MainScreenContent(uiState: MainUiState, onDetectionToggled: () -> Unit, modifier: Modifier = Modifier) {
+fun MainScreenContent(
+    uiState: MainUiState,
+    onDetectionToggled: () -> Unit,
+    onRequestDefaultDialer: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Scaffold(modifier = modifier.fillMaxSize(), topBar = { MainTopBar() }) { innerPadding ->
         Column(
             modifier = Modifier
@@ -46,7 +51,12 @@ fun MainScreenContent(uiState: MainUiState, onDetectionToggled: () -> Unit, modi
                 handledCallsTotal = uiState.handledCallsTotal
             )
             if (!uiState.isDefaultDialer) {
-                NoticeCard(text = stringResource(R.string.main_notice_default_dialer), iconRes = R.drawable.ic_warning)
+                NoticeCard(
+                    text = stringResource(R.string.main_notice_default_dialer),
+                    iconRes = R.drawable.ic_warning,
+                    actionLabel = stringResource(R.string.main_notice_default_dialer_action),
+                    onActionClick = onRequestDefaultDialer
+                )
             }
             NoticeCard(text = stringResource(R.string.main_notice_background), iconRes = R.drawable.ic_info)
         }
@@ -61,7 +71,7 @@ private val SectionSpacing = 20.dp
 @Composable
 private fun MainScreenContentInactivePreview() {
     OpenCallTrackerTheme {
-        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {})
+        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {}, onRequestDefaultDialer = {})
     }
 }
 
@@ -77,7 +87,8 @@ private fun MainScreenContentActivePreview() {
                 handledCallsTotal = 128,
                 isDefaultDialer = true
             ),
-            onDetectionToggled = {}
+            onDetectionToggled = {},
+            onRequestDefaultDialer = {}
         )
     }
 }
