@@ -14,4 +14,11 @@
     <string name="main_notice_background">Detection keeps running when the app is in the background or closed.</string>
     <string name="main_last_call">Last handled: %1$s, %2$s</string>
     <string name="main_last_call_unknown_number">unknown number</string>
+    <string name="main_history_action">Call history</string>
+    <string name="history_title">Call history</string>
+    <string name="history_back">Back</string>
+    <string name="history_unknown_number">Unknown number</string>
+    <string name="history_call_failed">Failed</string>
+    <string name="history_empty_title">No calls handled yet</string>
+    <string name="history_empty_description">Calls answered automatically will show up here.</string>
 </resources>
