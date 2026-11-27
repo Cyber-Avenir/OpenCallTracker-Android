@@ -1,117 +1,190 @@
 # OpenCallTracker
 
-Application Android (Kotlin, Jetpack Compose) qui répond automatiquement aux appels entrants, envoie la touche `#` puis raccroche. Chaque appel traité est stocké dans un historique local. Aucun serveur, aucune connexion réseau.
+Android app (Kotlin, Jetpack Compose) that automatically answers incoming calls, waits, sends the `*` key tone, then hangs up. Built to open a door through an intercom. Every handled call is stored in a local history. No server, no network access.
 
-## Fonctionnement
+## How it works
 
-- Un grand bouton sur l'écran principal active ou désactive la détection (principe d'un bouton VPN).
-- Détection activée : chaque appel entrant, quelle que soit la SIM, est décroché automatiquement, la touche `#` est envoyée, puis l'appel est raccroché.
-- Un second écran affiche l'historique local des appels traités.
-- L'état de la détection est persistant : il survit au passage en arrière-plan, à la fermeture de l'application et au redémarrage du téléphone.
+- A large button on the main screen turns call detection on or off (same idea as a VPN button).
+- When detection is on, every incoming call, whatever the SIM, is answered automatically, the app waits 3 s, sends the `*` tone twice for 1.2 s each, then hangs up after 2 s.
+- A settings screen tunes the tone timings on the spot, without rebuilding the app.
+- A second screen shows the local history of handled calls.
+- The detection state is persistent: it survives the app going to the background, the app being closed and a phone reboot.
 
 > [!IMPORTANT]
-> Pour pouvoir envoyer la touche `#` pendant un appel, l'application doit être définie comme **application Téléphone par défaut** (rôle `ROLE_DIALER`). Voir [Points d'attention](#points-dattention).
+> Sending the `*` tone during a call requires the app to be the **default Phone app** (`ROLE_DIALER`). See [Points of attention](#points-of-attention).
 
-## Statut
+## Status
 
-Setup initial : le projet Compose, l'outillage de qualité et la CI sont en place. Les fonctionnalités ne sont pas encore implémentées.
+Feature complete. Interception, persistence, history and the default Phone app role request all work and were verified on an emulator. The `*` tone itself still has to be confirmed on a physical phone, from the caller side. See the [Roadmap](#roadmap).
 
 ## Stack
 
-| Domaine | Choix |
+| Area | Choice |
 | --- | --- |
-| Langage | Kotlin |
+| Language | Kotlin |
 | UI | Jetpack Compose, Material 3 |
+| Persistence | Room (call history), DataStore (detection state) |
+| Dependency injection | Manual, through `AppContainer` |
 | Build | Gradle (Kotlin DSL), version catalog (`gradle/libs.versions.toml`) |
-| Format et lint | Spotless + ktlint (`.editorconfig`) |
+| Format and lint | Spotless + ktlint (`.editorconfig`) |
 | CI | GitHub Actions |
 
-Bibliothèques prévues, à ajouter au fil des fonctionnalités : ViewModel Compose, Navigation Compose, DataStore (état de la détection), Room (historique), Coroutines et Flow, injection de dépendances (Hilt ou injection manuelle).
+Still to add: Navigation Compose, once there is a second screen.
 
 ## Architecture
 
-MVVM, avec une séparation stricte entre la vue, la logique et l'accès aux données. Un seul module `app`, découpé en packages.
+MVVM, with a strict separation between the view, the logic and the data access. Single `app` module split into packages.
 
 ```
 com.example.opencalltracker
-├── ui/           Écrans Compose, ViewModels, navigation, thème (aucune logique métier)
-├── domain/       Modèles et interfaces de repositories
-├── data/         Implémentations : Room (historique), DataStore (état de la détection)
-├── service/      InCallService : réception des appels, décrochage, DTMF, raccrochage
-└── di/           Câblage des dépendances
+├── ui/
+│   ├── main/            Main screen, its ViewModel and UI state
+│   │   └── components/  One composable per file
+│   ├── history/         Handled call list
+│   ├── settings/        Tone timing settings
+│   ├── navigation/      NavHost and routes
+│   └── theme/           Color scheme and typography
+├── domain/
+│   ├── model/           HandledCall, HandledCallOutcome, DetectionState, ToneSettings
+│   └── repository/      CallHistoryRepository, DetectionSettingsRepository
+├── data/
+│   ├── history/         Room entity, DAO, mapper, repository implementation
+│   ├── settings/        DataStore repositories (detection state, tone settings)
+│   └── OpenCallTrackerDatabase.kt
+├── service/             InCallService: answer, DTMF, hang up
+└── di/                  AppContainer
 ```
 
-Règles :
+Rules:
 
-- Les composables n'accèdent jamais à Room, DataStore ni aux services : ils observent l'état exposé par un ViewModel (`StateFlow`) et lui envoient des événements.
-- Le service d'appel et les ViewModels ne dépendent que des interfaces du `domain`.
-- La détection est pilotée par un état unique (DataStore) lu par le service d'appel et par l'UI. L'UI ne "démarre" pas la détection, elle écrit l'état.
+- Composables never access Room, DataStore or the call service. They observe the state exposed by a ViewModel (`StateFlow`) and send events to it.
+- The call service and the ViewModels only depend on `domain` interfaces.
+- Detection is driven by a single persisted state (DataStore) read by both the call service and the UI. The UI does not "start" detection, it writes the state.
+- One composable per file. A file may hold that composable's constants and previews, never another composable.
 
-## Prérequis
+## Repository structure
 
-- Android Studio (version compatible AGP 9.5)
-- Le JDK 25 est téléchargé automatiquement par Gradle (toolchain `gradle/gradle-daemon-jvm.properties`)
-- Android SDK 37 (installé via le SDK Manager d'Android Studio)
-- Un téléphone physique avec SIM pour tester le comportement réel
+```
+.
+├── app/                         Android application module
+├── gradle/
+│   ├── libs.versions.toml       Dependencies and plugin versions
+│   └── gradle-daemon-jvm.properties
+├── .editorconfig                Code style (ktlint)
+├── .github/workflows/ci.yml     CI: format check and debug build
+├── AGENTS.md                    Project context for AI coding agents
+├── CLAUDE.md                    Points to AGENTS.md
+└── build.gradle.kts             Root build, Spotless configuration
+```
 
-## Démarrage
+## Prerequisites
+
+- Android Studio (version compatible with AGP 9.5)
+- JDK 25, downloaded automatically by Gradle (toolchain defined in `gradle/gradle-daemon-jvm.properties`)
+- Android SDK 37, installed from the Android Studio SDK Manager
+- A physical phone with a SIM card to test the real behavior
+
+## Getting started
 
 ```bash
-git clone <url-du-repo>
+git clone <repository-url>
 cd OpenCallTracker
 ./gradlew assembleDebug
 ```
 
-Ou ouvrir le dossier dans Android Studio et lancer la configuration `app`.
+Or open the folder in Android Studio and run the `app` configuration.
 
 > [!NOTE]
-> `local.properties` (chemin du SDK) est généré par Android Studio et ignoré par git.
+> `local.properties` (SDK path) is generated by Android Studio and ignored by git.
 
-## Commandes
+## Commands
 
-| Commande | Rôle |
+| Command | Purpose |
 | --- | --- |
-| `./gradlew spotlessCheck` | Vérifie le format (Kotlin et scripts Gradle) |
-| `./gradlew spotlessApply` | Corrige le format automatiquement |
-| `./gradlew assembleDebug` | Compile l'APK debug |
-| `./gradlew test` | Lance les tests unitaires |
+| `./gradlew spotlessCheck` | Check formatting (Kotlin and Gradle scripts) |
+| `./gradlew spotlessApply` | Fix formatting automatically |
+| `./gradlew assembleDebug` | Build the debug APK |
+| `./gradlew test` | Run unit tests |
 
 > [!TIP]
-> Lancer `./gradlew spotlessApply` avant chaque commit. La CI échoue si `spotlessCheck` échoue.
+> Run `./gradlew spotlessApply` before each commit. The CI fails if `spotlessCheck` fails.
 
-## Qualité de code
+## Code quality
 
-Le format est défini dans `.editorconfig` (style `android_studio`, pas de limite de largeur de ligne) et appliqué par Spotless avec ktlint. C'est l'équivalent de Prettier et ESLint côté Android. Android Studio lit aussi `.editorconfig` pour son formatage.
+Formatting is defined in `.editorconfig` (`android_studio` style, no line width limit) and enforced by Spotless with ktlint. This is the Android equivalent of Prettier and ESLint. Android Studio also reads `.editorconfig` for its own formatting.
 
 ## CI
 
-Le workflow `.github/workflows/ci.yml` s'exécute sur chaque push et pull request vers `main` : vérification du format, puis compilation de l'APK debug. Pas de tests ni de déploiement pour l'instant.
+The `.github/workflows/ci.yml` workflow runs on every push and pull request to `main`, and can be triggered by hand from the Actions tab. It checks formatting, builds the signed release APK and uploads it as the `OpenCallTracker-apk` artifact, downloadable from the run page.
 
-## Points d'attention
+Two repository secrets are required, under Settings > Secrets and variables > Actions:
+
+| Secret | Value |
+| --- | --- |
+| `KEYSTORE_BASE64` | The signing keystore, base64 encoded on a single line |
+| `KEYSTORE_PASSWORD` | The keystore password, used for both the store and the key |
 
 > [!WARNING]
-> **Application Téléphone par défaut.** Envoyer une touche DTMF n'est possible que pour l'application qui détient le rôle `ROLE_DIALER` (via `InCallService`). Cette application doit donc proposer un clavier d'appel, une interface d'appel entrant et une interface d'appel en cours, sinon le téléphone n'est plus utilisable normalement une fois le rôle accordé. Le rôle est demandé à l'utilisateur au premier lancement (`RoleManager`), il ne peut pas être accordé automatiquement.
+> The keystore is never committed. `release.jks`, `keystore.properties` and `*.base64` are all gitignored. Keep a backup of the keystore outside the repository: without it, no future build can be recognised as an update of the installed app.
+
+## Points of attention
 
 > [!WARNING]
-> **Numéros d'urgence.** Android utilise toujours l'application Téléphone d'origine pour les appels d'urgence, même si l'application détient le rôle.
+> **Default Phone app.** Sending a DTMF tone is only possible for the app holding the `ROLE_DIALER` role (through `InCallService`). Tapping the power button requests the role through `RoleManager`; the user grants it from a system dialog and detection starts right after. The role cannot be granted automatically, and an app cannot give it back by itself.
+
+> [!IMPORTANT]
+> **Detection off hands every call back to the stock Phone app.** `CallInterceptorService.onBind` returns `null` while detection is off, and the Telecom framework then falls back to the preloaded dialer. The phone behaves normally, with its usual incoming call screen. This app deliberately ships no call UI of its own.
 
 > [!WARNING]
-> **Version Android minimale.** Le projet est actuellement en `minSdk = 24`. Le décrochage par `TelecomManager` demande l'API 26 et `RoleManager` l'API 29. Relever le `minSdk` avant d'implémenter la détection (29 recommandé).
-
-> [!CAUTION]
-> **Distribution.** Une application qui devient application Téléphone par défaut est soumise aux règles du Google Play Store sur les permissions d'appel. Pour une distribution hors Play Store (APK direct), il n'y a pas cette contrainte. À valider avec le client avant toute publication.
-
-> [!CAUTION]
-> **Usage légal.** Décrocher automatiquement des appels et envoyer des tonalités ne doit pas être utilisé pour dissimuler une activité ou perturber des tiers. L'application ne doit enregistrer ni l'audio ni le contenu des appels.
+> **Null binding is logged as a crash.** Telecom records each null binding with `isCrashed: true`. It had no visible consequence in testing, and the fallback worked every time, but watch it over repeated on/off cycles on the client device.
 
 > [!NOTE]
-> **Constructeurs Android.** Certaines surcouches (Xiaomi, Huawei, Samsung, etc.) limitent agressivement les applications en arrière-plan. Pour la fiabilité de la détection, exclure l'application des optimisations de batterie et tester sur les appareils cibles du client.
+> **Tone timings are tunable in the app.** Defaults are deliberately generous: 3 s before the tone, 1.2 s tone duration, sent twice 500 ms apart, 2 s before hanging up. Noise suppression on the mobile path can eat the start of a short tone, so a long tone is the safer bet. If a door does not open, raise the tone duration first.
 
 > [!NOTE]
-> **Identifiant de l'application.** `com.example.opencalltracker` est un identifiant provisoire. Le définir avant la première distribution : il ne peut plus changer ensuite.
+> **No dial pad.** The app declares `ACTION_DIAL`, which the role requires, but shows the main screen instead of a keypad. Outgoing calls cannot be placed from this phone. Emergency calls are unaffected: Android always routes them to the preloaded Phone app.
 
-## Tester
+> [!WARNING]
+> **Emergency calls.** Android always uses the preloaded Phone app for emergency calls, even when this app holds the role.
 
-- Émulateur : un appel entrant peut être simulé avec `adb emu gsm call 5551234`. Cela permet de tester le décrochage et le raccrochage, pas la réception réelle de la touche `#`.
-- Téléphone physique : seul moyen de valider l'envoi du `#` de bout en bout (appeler le téléphone depuis un autre numéro et vérifier côté appelant).
-- Tester les cas : écran verrouillé, application en arrière-plan, application fermée depuis les récents, redémarrage du téléphone, téléphone double SIM, deuxième appel pendant un appel en cours.
+> [!CAUTION]
+> **Distribution.** An app that becomes the default Phone app is subject to Google Play policies on call-related permissions. Direct APK distribution is not affected. Validate with the client before any publication.
+
+> [!CAUTION]
+> **Legal use.** Automatically answering calls and sending tones must not be used to hide an activity or disturb third parties. The app must not record audio or call content.
+
+> [!NOTE]
+> **Android manufacturers.** Some Android skins (Xiaomi, Huawei, Samsung, etc.) aggressively restrict background apps. For reliable detection, exclude the app from battery optimizations and test on the client's target devices.
+
+> [!NOTE]
+> **Minimum Android version.** `minSdk = 29`, required by `RoleManager`. Answering through the Telecom framework requires API 26.
+
+> [!NOTE]
+> **KSP and built-in Kotlin.** `android.disallowKotlinSourceSets=false` in `gradle.properties` is required for Room: KSP registers its generated sources through the `kotlin.sourceSets` DSL, which AGP 9 built-in Kotlin rejects. Remove it once KSP supports built-in Kotlin natively.
+
+> [!NOTE]
+> **Application ID.** `com.cyberavenir.opencalltracker`. It cannot be changed once the app is distributed.
+
+## Testing
+
+- Emulator: an incoming call can be simulated with `adb emu gsm call 5551234`. This covers answering and hanging up, not the actual reception of the `*` tone.
+- Physical phone: the only way to validate the `*` tone end to end (call the phone from another number and check on the caller side).
+- Cases to test: locked screen, app in the background, app closed from the recents, phone reboot, dual SIM, second call during an ongoing call.
+
+## Roadmap
+
+Each item is a feature, developed with Gitflow:
+
+- [x] Project setup, code quality tooling, CI
+- [x] Main screen: detection button, status, counters, last handled call
+- [x] Detection state persistence (DataStore)
+- [x] Call history storage (Room)
+- [x] Call service: answer, wait 2.5 s, `*` tone, hang up
+- [x] Default Phone app role request from the power button
+- [x] Calls handed back to the stock Phone app while detection is off
+- [x] History screen
+- [x] Tone settings screen, adjustable on site
+- [x] Signed release build
+- [ ] End-to-end check on a physical phone, caller side
+- [ ] Battery optimization guidance and manufacturer testing
+- [ ] Automated tests
