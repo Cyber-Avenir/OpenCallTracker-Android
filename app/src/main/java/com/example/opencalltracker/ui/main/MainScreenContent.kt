@@ -25,8 +25,14 @@ import com.example.opencalltracker.ui.main.components.StatsRow
 import com.example.opencalltracker.ui.theme.OpenCallTrackerTheme
 
 @Composable
-fun MainScreenContent(uiState: MainUiState, onDetectionToggled: () -> Unit, modifier: Modifier = Modifier) {
-    Scaffold(modifier = modifier.fillMaxSize(), topBar = { MainTopBar() }) { innerPadding ->
+fun MainScreenContent(
+    uiState: MainUiState,
+    onDetectionToggled: () -> Unit,
+    onHistoryClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Scaffold(modifier = modifier.fillMaxSize(), topBar = { MainTopBar(onHistoryClick = onHistoryClick, onSettingsClick = onSettingsClick) }) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -65,7 +71,7 @@ private val SectionSpacing = 20.dp
 @Composable
 private fun MainScreenContentInactivePreview() {
     OpenCallTrackerTheme {
-        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {})
+        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {}, onHistoryClick = {}, onSettingsClick = {})
     }
 }
 
@@ -81,7 +87,9 @@ private fun MainScreenContentActivePreview() {
                 handledCallsTotal = 128,
                 isDefaultDialer = true
             ),
-            onDetectionToggled = {}
+            onDetectionToggled = {},
+            onHistoryClick = {},
+            onSettingsClick = {}
         )
     }
 }

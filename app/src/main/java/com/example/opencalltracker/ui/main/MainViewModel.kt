@@ -12,13 +12,17 @@ import com.example.opencalltracker.domain.repository.DetectionSettingsRepository
 import com.example.opencalltracker.domain.repository.DialerRoleRepository
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -36,8 +40,15 @@ class MainViewModel(
         }
     }
 
+    // Re-subscribes when the day rolls over, so the daily counter does not stay stuck past midnight.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val handledCallsToday: Flow<Int> = secondTicks
+        .map { startOfTodayMillis() }
+        .distinctUntilChanged()
+        .flatMapLatest { dayStartMillis -> callHistoryRepository.observeHandledCallCountSince(dayStartMillis) }
+
     private val historySummary: Flow<MainHistorySummary> = combine(
-        callHistoryRepository.observeHandledCallCountSince(startOfTodayMillis()),
+        handledCallsToday,
         callHistoryRepository.observeHandledCallCount(),
         callHistoryRepository.observeLastHandledCall()
     ) { handledToday, handledTotal, lastHandledCall ->

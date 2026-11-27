@@ -12,7 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun MainScreen(modifier: Modifier = Modifier, viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)) {
+fun MainScreen(onHistoryClick: () -> Unit, onSettingsClick: () -> Unit, modifier: Modifier = Modifier, viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val roleRequestLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -31,5 +31,11 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainViewModel = viewMod
         viewModel.refreshDialerRole()
     }
 
-    MainScreenContent(uiState = uiState, onDetectionToggled = toggleDetection, modifier = modifier)
+    MainScreenContent(
+        uiState = uiState,
+        onDetectionToggled = toggleDetection,
+        onHistoryClick = onHistoryClick,
+        onSettingsClick = onSettingsClick,
+        modifier = modifier
+    )
 }
