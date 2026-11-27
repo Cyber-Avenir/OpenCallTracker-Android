@@ -124,6 +124,12 @@ Two repository secrets are required, under Settings > Secrets and variables > Ac
 | `KEYSTORE_BASE64` | The signing keystore, base64 encoded on a single line |
 | `KEYSTORE_PASSWORD` | The keystore password, used for both the store and the key |
 
+Pushing a `v*` tag additionally publishes a GitHub Release with the APK attached as-is. Unlike a workflow artifact, a release asset is not zipped, so it downloads and installs straight from a phone:
+
+```bash
+git tag v1.1 && git push origin v1.1
+```
+
 > [!WARNING]
 > The keystore is never committed. `release.jks`, `keystore.properties` and `*.base64` are all gitignored. Keep a backup of the keystore outside the repository: without it, no future build can be recognised as an update of the installed app.
 
