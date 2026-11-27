@@ -29,9 +29,10 @@ fun MainScreenContent(
     uiState: MainUiState,
     onDetectionToggled: () -> Unit,
     onHistoryClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(modifier = modifier.fillMaxSize(), topBar = { MainTopBar(onHistoryClick = onHistoryClick) }) { innerPadding ->
+    Scaffold(modifier = modifier.fillMaxSize(), topBar = { MainTopBar(onHistoryClick = onHistoryClick, onSettingsClick = onSettingsClick) }) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -70,7 +71,7 @@ private val SectionSpacing = 20.dp
 @Composable
 private fun MainScreenContentInactivePreview() {
     OpenCallTrackerTheme {
-        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {}, onHistoryClick = {})
+        MainScreenContent(uiState = MainUiState(), onDetectionToggled = {}, onHistoryClick = {}, onSettingsClick = {})
     }
 }
 
@@ -87,7 +88,8 @@ private fun MainScreenContentActivePreview() {
                 isDefaultDialer = true
             ),
             onDetectionToggled = {},
-            onHistoryClick = {}
+            onHistoryClick = {},
+            onSettingsClick = {}
         )
     }
 }

@@ -14,12 +14,18 @@ import com.example.opencalltracker.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainTopBar(onHistoryClick: () -> Unit, modifier: Modifier = Modifier) {
+fun MainTopBar(onHistoryClick: () -> Unit, onSettingsClick: () -> Unit, modifier: Modifier = Modifier) {
     CenterAlignedTopAppBar(
         title = {
             Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
         },
         actions = {
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_tune),
+                    contentDescription = stringResource(R.string.main_settings_action)
+                )
+            }
             IconButton(onClick = onHistoryClick) {
                 Icon(
                     painter = painterResource(R.drawable.ic_history),

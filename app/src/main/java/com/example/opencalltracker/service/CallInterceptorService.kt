@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 class CallInterceptorService : InCallService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val callbacks = mutableMapOf<Call, Call.Callback>()
+    private var interceptedCall: Call? = null
 
     private val container: AppContainer
         get() = (application as OpenCallTrackerApplication).container
@@ -28,7 +29,7 @@ class CallInterceptorService : InCallService() {
     // Telecom falls back to the preloaded dialer when this returns null, which hands every call
     // back to the stock phone app while detection is off.
     override fun onBind(intent: Intent?): IBinder? {
-        if (!isDetectionEnabled()) {
+        if (!runBlocking { isDetectionEnabled() }) {
             return null
         }
         return super.onBind(intent)
@@ -37,7 +38,10 @@ class CallInterceptorService : InCallService() {
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         serviceScope.launch {
-            if (isDetectionEnabled() && call.currentState == Call.STATE_RINGING) {
+            val canIntercept = interceptedCall == null &&
+                call.currentState == Call.STATE_RINGING &&
+                isDetectionEnabled()
+            if (canIntercept) {
                 intercept(call)
             }
         }
@@ -46,15 +50,20 @@ class CallInterceptorService : InCallService() {
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         unregister(call)
+        if (interceptedCall == call) {
+            interceptedCall = null
+        }
     }
 
     override fun onDestroy() {
         serviceScope.cancel()
         callbacks.keys.toList().forEach { unregister(it) }
+        interceptedCall = null
         super.onDestroy()
     }
 
     private fun intercept(call: Call) {
+        interceptedCall = call
         val phoneNumber = call.details?.handle?.schemeSpecificPart
 
         val callback = object : Call.Callback() {
@@ -72,11 +81,21 @@ class CallInterceptorService : InCallService() {
     }
 
     private suspend fun sendToneAndHangUp(call: Call, phoneNumber: String?) {
+        val toneSettings = container.toneSettingsRepository.observeToneSettings().first()
+
         val outcome = runCatching {
-            call.playDtmfTone(DTMF_DIGIT)
-            delay(TONE_DURATION_MILLIS)
-            call.stopDtmfTone()
-            delay(HANG_UP_DELAY_MILLIS)
+            delay(toneSettings.toneDelayMillis)
+            // The caller may have hung up while we were waiting.
+            check(call.currentState == Call.STATE_ACTIVE)
+            repeat(toneSettings.toneRepeatCount) { index ->
+                if (index > 0) {
+                    delay(TONE_GAP_MILLIS)
+                }
+                call.playDtmfTone(DTMF_DIGIT)
+                delay(toneSettings.toneDurationMillis)
+                call.stopDtmfTone()
+            }
+            delay(toneSettings.hangUpDelayMillis)
             call.disconnect()
         }.fold(
             onSuccess = { HandledCallOutcome.COMPLETED },
@@ -88,9 +107,13 @@ class CallInterceptorService : InCallService() {
             handledAt = System.currentTimeMillis(),
             outcome = outcome
         )
+
+        if (interceptedCall == call) {
+            interceptedCall = null
+        }
     }
 
-    private fun isDetectionEnabled(): Boolean = runBlocking { container.detectionSettingsRepository.observeDetectionState().first().isEnabled }
+    private suspend fun isDetectionEnabled(): Boolean = container.detectionSettingsRepository.observeDetectionState().first().isEnabled
 
     private fun unregister(call: Call) {
         callbacks.remove(call)?.let { call.unregisterCallback(it) }
@@ -105,6 +128,5 @@ private val Call.currentState: Int
         state
     }
 
-private const val DTMF_DIGIT = '#'
-private const val TONE_DURATION_MILLIS = 350L
-private const val HANG_UP_DELAY_MILLIS = 600L
+private const val DTMF_DIGIT = '*'
+private const val TONE_GAP_MILLIS = 500L

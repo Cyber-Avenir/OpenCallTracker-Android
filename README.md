@@ -1,20 +1,21 @@
 # OpenCallTracker
 
-Android app (Kotlin, Jetpack Compose) that automatically answers incoming calls, sends the `#` key tone, then hangs up. Every handled call is stored in a local history. No server, no network access.
+Android app (Kotlin, Jetpack Compose) that automatically answers incoming calls, waits, sends the `*` key tone, then hangs up. Built to open a door through an intercom. Every handled call is stored in a local history. No server, no network access.
 
 ## How it works
 
 - A large button on the main screen turns call detection on or off (same idea as a VPN button).
-- When detection is on, every incoming call, whatever the SIM, is answered automatically, the `#` tone is sent, and the call is hung up.
+- When detection is on, every incoming call, whatever the SIM, is answered automatically, the app waits 3 s, sends the `*` tone twice for 1.2 s each, then hangs up after 2 s.
+- A settings screen tunes the tone timings on the spot, without rebuilding the app.
 - A second screen shows the local history of handled calls.
 - The detection state is persistent: it survives the app going to the background, the app being closed and a phone reboot.
 
 > [!IMPORTANT]
-> Sending the `#` tone during a call requires the app to be the **default Phone app** (`ROLE_DIALER`). See [Points of attention](#points-of-attention).
+> Sending the `*` tone during a call requires the app to be the **default Phone app** (`ROLE_DIALER`). See [Points of attention](#points-of-attention).
 
 ## Status
 
-The main screen, the persistence layer and the call interception service are implemented. The service has never run yet: the Telecom framework only binds it once the app holds the default Phone app role, which is not requested yet. See the [Roadmap](#roadmap).
+Feature complete. Interception, persistence, history and the default Phone app role request all work and were verified on an emulator. The `*` tone itself still has to be confirmed on a physical phone, from the caller side. See the [Roadmap](#roadmap).
 
 ## Stack
 
@@ -39,13 +40,16 @@ com.example.opencalltracker
 ├── ui/
 │   ├── main/            Main screen, its ViewModel and UI state
 │   │   └── components/  One composable per file
+│   ├── history/         Handled call list
+│   ├── settings/        Tone timing settings
+│   ├── navigation/      NavHost and routes
 │   └── theme/           Color scheme and typography
 ├── domain/
-│   ├── model/           HandledCall, HandledCallOutcome, DetectionState
+│   ├── model/           HandledCall, HandledCallOutcome, DetectionState, ToneSettings
 │   └── repository/      CallHistoryRepository, DetectionSettingsRepository
 ├── data/
 │   ├── history/         Room entity, DAO, mapper, repository implementation
-│   ├── settings/        DataStore repository implementation
+│   ├── settings/        DataStore repositories (detection state, tone settings)
 │   └── OpenCallTrackerDatabase.kt
 ├── service/             InCallService: answer, DTMF, hang up
 └── di/                  AppContainer
@@ -111,18 +115,34 @@ Formatting is defined in `.editorconfig` (`android_studio` style, no line width 
 
 ## CI
 
-The `.github/workflows/ci.yml` workflow runs on every push and pull request to `main`: format check, then debug APK build. No tests and no deployment for now.
+The `.github/workflows/ci.yml` workflow runs on every push and pull request to `main`, and can be triggered by hand from the Actions tab. It checks formatting, builds the signed release APK and uploads it as the `OpenCallTracker-apk` artifact, downloadable from the run page.
+
+Two repository secrets are required, under Settings > Secrets and variables > Actions:
+
+| Secret | Value |
+| --- | --- |
+| `KEYSTORE_BASE64` | The signing keystore, base64 encoded on a single line |
+| `KEYSTORE_PASSWORD` | The keystore password, used for both the store and the key |
+
+> [!WARNING]
+> The keystore is never committed. `release.jks`, `keystore.properties` and `*.base64` are all gitignored. Keep a backup of the keystore outside the repository: without it, no future build can be recognised as an update of the installed app.
 
 ## Points of attention
 
 > [!WARNING]
-> **Default Phone app.** Sending a DTMF tone is only possible for the app holding the `ROLE_DIALER` role (through `InCallService`). The app must therefore provide a dial pad, an incoming call screen and an ongoing call screen, otherwise the phone is no longer usable normally once the role is granted. The role is requested from the user on first launch (`RoleManager`) and cannot be granted automatically.
+> **Default Phone app.** Sending a DTMF tone is only possible for the app holding the `ROLE_DIALER` role (through `InCallService`). Tapping the power button requests the role through `RoleManager`; the user grants it from a system dialog and detection starts right after. The role cannot be granted automatically, and an app cannot give it back by itself.
+
+> [!IMPORTANT]
+> **Detection off hands every call back to the stock Phone app.** `CallInterceptorService.onBind` returns `null` while detection is off, and the Telecom framework then falls back to the preloaded dialer. The phone behaves normally, with its usual incoming call screen. This app deliberately ships no call UI of its own.
 
 > [!WARNING]
-> **The service does nothing on its own.** `CallInterceptorService` is only bound by the Telecom framework once the app holds the `ROLE_DIALER` role. Until the role is requested and granted, incoming calls are never intercepted and no history entry is created.
+> **Null binding is logged as a crash.** Telecom records each null binding with `isCrashed: true`. It had no visible consequence in testing, and the fallback worked every time, but watch it over repeated on/off cycles on the client device.
 
-> [!CAUTION]
-> **Granting the role without call screens breaks the phone.** Once the app is the default Phone app, it owns the whole in-call experience. With no dial pad, no incoming call screen and no ongoing call screen, normal calls become unusable, detection on or off. These screens must ship together with the role request.
+> [!NOTE]
+> **Tone timings are tunable in the app.** Defaults are deliberately generous: 3 s before the tone, 1.2 s tone duration, sent twice 500 ms apart, 2 s before hanging up. Noise suppression on the mobile path can eat the start of a short tone, so a long tone is the safer bet. If a door does not open, raise the tone duration first.
+
+> [!NOTE]
+> **No dial pad.** The app declares `ACTION_DIAL`, which the role requires, but shows the main screen instead of a keypad. Outgoing calls cannot be placed from this phone. Emergency calls are unaffected: Android always routes them to the preloaded Phone app.
 
 > [!WARNING]
 > **Emergency calls.** Android always uses the preloaded Phone app for emergency calls, even when this app holds the role.
@@ -143,12 +163,12 @@ The `.github/workflows/ci.yml` workflow runs on every push and pull request to `
 > **KSP and built-in Kotlin.** `android.disallowKotlinSourceSets=false` in `gradle.properties` is required for Room: KSP registers its generated sources through the `kotlin.sourceSets` DSL, which AGP 9 built-in Kotlin rejects. Remove it once KSP supports built-in Kotlin natively.
 
 > [!NOTE]
-> **Application ID.** `com.example.opencalltracker` is a placeholder. Define the final one before the first distribution, it cannot be changed afterwards.
+> **Application ID.** `com.cyberavenir.opencalltracker`. It cannot be changed once the app is distributed.
 
 ## Testing
 
-- Emulator: an incoming call can be simulated with `adb emu gsm call 5551234`. This covers answering and hanging up, not the actual reception of the `#` tone.
-- Physical phone: the only way to validate the `#` tone end to end (call the phone from another number and check on the caller side).
+- Emulator: an incoming call can be simulated with `adb emu gsm call 5551234`. This covers answering and hanging up, not the actual reception of the `*` tone.
+- Physical phone: the only way to validate the `*` tone end to end (call the phone from another number and check on the caller side).
 - Cases to test: locked screen, app in the background, app closed from the recents, phone reboot, dual SIM, second call during an ongoing call.
 
 ## Roadmap
@@ -156,11 +176,15 @@ The `.github/workflows/ci.yml` workflow runs on every push and pull request to `
 Each item is a feature, developed with Gitflow:
 
 - [x] Project setup, code quality tooling, CI
-- [x] Main screen: detection button, status, counters
+- [x] Main screen: detection button, status, counters, last handled call
 - [x] Detection state persistence (DataStore)
 - [x] Call history storage (Room)
-- [x] Call service: answer, `#` tone, hang up (written, never run yet)
-- [ ] Default Phone app role request, with the dial pad, incoming call and ongoing call screens
-- [ ] End-to-end check on a physical phone
-- [ ] History screen
+- [x] Call service: answer, wait 2.5 s, `*` tone, hang up
+- [x] Default Phone app role request from the power button
+- [x] Calls handed back to the stock Phone app while detection is off
+- [x] History screen
+- [x] Tone settings screen, adjustable on site
+- [x] Signed release build
+- [ ] End-to-end check on a physical phone, caller side
 - [ ] Battery optimization guidance and manufacturer testing
+- [ ] Automated tests
